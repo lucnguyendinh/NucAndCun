@@ -171,8 +171,8 @@
 </head>
 <body>
   <main class="shell">
-    <h1>Kiem tra so trung</h1>
-    <p class="lead">Nhap day so bi mat va day so du doan. Cong cu se dem so luong so trung nhau (tinh ca truong hop trung lap) giua hai day.</p>
+    <h1>Kiem tra dung thu tu</h1>
+    <p class="lead">Nhap day so bi mat va day so du doan. Cong cu chi tinh cac so khop dung vi tri va dung thu tu giua hai day.</p>
 
     <div class="grid">
       <div>
@@ -191,7 +191,7 @@
     </div>
 
     <section class="results" id="results" aria-live="polite"></section>
-    <p class="note">Cach tinh: moi con so se duoc doi sang dang so (Number). Moi lan so do xuat hien trong day doan, no chi duoc tinh la trung neu day bi mat con du so do (theo tan suat xuat hien). Vi du: bi mat "3, 3, 7", doan "3, 7, 7" -> so trung la 2 (mot so 3 va mot so 7).</p>
+    <p class="note">Cach tinh: tung vi tri se duoc so sanh truc tiep. So du trong day doan (vuot do dai bi mat) se duoc xem la khong khop; so con thieu trong day doan (ngan hon day bi mat) se duoc danh dau la chua du.</p>
   </main>
 
   <script>
@@ -220,24 +220,36 @@
         .filter(n => Number.isFinite(n));
     }
 
-    function countMatches(secretArr, guessArr) {
-      const freq = new Map();
-      secretArr.forEach(n => freq.set(n, (freq.get(n) || 0) + 1));
+    function compareInOrder(secretArr, guessArr) {
+      const matches = [];
+      const mismatches = [];
+      const extraGuess = [];
+      const missingSecret = [];
 
-      const matched = [];
-      const unmatchedGuess = [];
+      const maxLen = Math.max(secretArr.length, guessArr.length);
 
-      guessArr.forEach(n => {
-        const count = freq.get(n) || 0;
-        if (count > 0) {
-          matched.push(n);
-          freq.set(n, count - 1);
-        } else {
-          unmatchedGuess.push(n);
+      for (let i = 0; i < maxLen; i++) {
+        const secretVal = secretArr[i];
+        const guessVal = guessArr[i];
+
+        if (secretVal === undefined && guessVal !== undefined) {
+          extraGuess.push({ value: guessVal, index: i });
+          continue;
         }
-      });
 
-      return { matched, unmatchedGuess, remainingSecret: freq };
+        if (guessVal === undefined && secretVal !== undefined) {
+          missingSecret.push({ value: secretVal, index: i });
+          continue;
+        }
+
+        if (secretVal === guessVal) {
+          matches.push({ value: secretVal, index: i });
+        } else {
+          mismatches.push({ secret: secretVal, guess: guessVal, index: i });
+        }
+      }
+
+      return { matches, mismatches, extraGuess, missingSecret };
     }
 
     function renderResults() {
@@ -249,39 +261,19 @@
         return;
       }
 
-      const { matched, unmatchedGuess, remainingSecret } = countMatches(secretSeq, guessSeq);
-      const remainingSecretList = [];
-      remainingSecret.forEach((count, value) => {
-        for (let i = 0; i < count; i++) remainingSecretList.push(value);
-      });
+      const { matches } = compareInOrder(secretSeq, guessSeq);
 
-      const perfect = matched.length === secretSeq.length && unmatchedGuess.length === 0;
-      const overlapText = perfect ? 'Doan chinh xac hoan toan!' : `${matched.length} so trung.`;
+      const perfect = matches.length === secretSeq.length && guessSeq.length === secretSeq.length;
+      const overlapText = perfect ? 'Doan chinh xac hoan toan!' : `${matches.length} vi tri khop dung thu tu.`;
 
       resultsEl.innerHTML = `
-        <div class="metric fade">
-          <span>Do dai day bi mat</span>
-          <strong>${secretSeq.length}</strong>
-        </div>
-        <div class="metric fade">
-          <span>Do dai day du doan</span>
-          <strong>${guessSeq.length}</strong>
-        </div>
         <div class="metric fade">
           <span>Ket qua</span>
           <strong>${overlapText}</strong>
         </div>
         <div class="metric fade">
-          <span>Cac so trung (tinh tan suat)</span>
-          <div class="list">${matched.length ? matched.map(n => `<span class="chip">${n}</span>`).join('') : '<span class="pill">Khong co</span>'}</div>
-        </div>
-        <div class="metric fade">
-          <span>So doan chua khop</span>
-          <div class="list">${unmatchedGuess.length ? unmatchedGuess.map(n => `<span class="chip alt">${n}</span>`).join('') : '<span class="pill">Khong co</span>'}</div>
-        </div>
-        <div class="metric fade">
-          <span>So bi mat chua bi doan</span>
-          <div class="list">${remainingSecretList.length ? remainingSecretList.map(n => `<span class="chip alt">${n}</span>`).join('') : '<span class="pill">Khong con</span>'}</div>
+          <span>Vi tri khop dung thu tu</span>
+          <div class="list">${matches.length ? matches.map(item => `<span class="chip">#${item.index + 1}: ${item.value}</span>`).join('') : '<span class="pill">Khong co</span>'}</div>
         </div>
       `;
     }
